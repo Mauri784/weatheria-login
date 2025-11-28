@@ -277,7 +277,7 @@ def report_flood():
 
     try:
         print(f"[{datetime.datetime.now()}] Intentando conectar SMTP desde {sender_email} a {company_email}...")
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server = smtplib.SMTP('smtp.gmail.com', 465)
         server.starttls()
         server.ehlo()  # Handshake requerido por Gmail
         print(f"[{datetime.datetime.now()}] Conexión y ehlo OK.")
@@ -311,5 +311,6 @@ init_db()
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=5001, debug=True)
+
 
 
