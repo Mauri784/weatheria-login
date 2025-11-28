@@ -307,18 +307,9 @@ def report_flood():
         
 init_db()
 
-@app.route('/flood_history', methods=['GET'])
-def flood_history():
-    return jsonify({
-        "statusCode": 200,
-        "intData": {
-            "message": "Historial de inundaciones (demo)",
-            "data": []
-        }
-    })
-
 
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=5001, debug=True)
+
 
