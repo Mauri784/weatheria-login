@@ -20,17 +20,11 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# ============================
-# ✅ CONFIGURACIÓN JWT
-# ============================
 
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'tu_clave_secreta_super_fuerte')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(minutes=30)
 jwt = JWTManager(app)
 
-# ============================
-# ✅ GOOGLE MAPS
-# ============================
 
 API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 
@@ -161,6 +155,57 @@ Verificar inmediatamente la zona reportada.
             "statusCode": 500,
             "message": f"Error al enviar correo: {str(e)}"
         })
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({
+            "statusCode": 400,
+            "intData": { "message": "Faltan credenciales" }
+        })
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT password, status FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        return jsonify({
+            "statusCode": 401,
+            "intData": { "message": "Usuario no encontrado" }
+        })
+
+    hashed_password, status = user
+
+    if status != 1:
+        return jsonify({
+            "statusCode": 403,
+            "intData": { "message": "Usuario inactivo" }
+        })
+
+    if not check_password_hash(hashed_password, password):
+        return jsonify({
+            "statusCode": 401,
+            "intData": { "message": "Contraseña incorrecta" }
+        })
+
+    token = create_access_token(identity=username)
+
+    return jsonify({
+        "statusCode": 200,
+        "intData": {
+            "token": token,
+            "message": "Login correcto"
+        }
+    })
+
 
 # ============================
 # ✅ INICIALIZACIÓN
