@@ -8,7 +8,7 @@ import re
 import sqlite3
 from flask_cors import CORS
 from dotenv import load_dotenv
-from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import datetime
 import googlemaps
 from sendgrid import SendGridAPIClient
@@ -60,28 +60,25 @@ def init_db():
 def validate_username(username: str) -> bool:
     return bool(username and 3 <= len(username) <= 50 and re.match(r'^[a-zA-Z0-9_]+$', username))
 
-def validate_password(password: str) -> bool:
-    return bool(password and len(password) >= 8)
-
 # === RUTAS ===
 
 @app.route('/')
 def health_check():
     return jsonify({'message': 'Backend funcionando correctamente'})
 
-# ¡¡LA RUTA QUE TE FALTABA!!
+# RUTA LOGIN - AHORA DEVUELVE "token" (lo que espera tu frontend)
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
 
     if not data or 'username' not in data or 'password' not in data:
-        return jsonify({"statusCode": 400, "message": "Faltan username o password"}), 400
+        return jsonify({"message": "Faltan username o password"}), 400
 
     username = data['username'].strip()
     password = data['password']
 
     if not validate_username(username):
-        return jsonify({"statusCode": 400, "message": "Username inválido"}), 400
+        return jsonify({"message": "Username inválido"}), 400
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -90,26 +87,24 @@ def login():
     conn.close()
 
     if not user:
-        return jsonify({"statusCode": 404, "message": "Usuario no encontrado"}), 404
+        return jsonify({"message": "Usuario no encontrado"}), 404
 
     hashed_password, status = user
 
     if status != 1:
-        return jsonify({"statusCode": 403, "message": "Usuario inactivo"}), 403
+        return jsonify({"message": "Usuario inactivo"}), 403
 
     if check_password_hash(hashed_password, password):
         access_token = create_access_token(identity=username)
-        refresh_token = create_refresh_token(identity=username)
         return jsonify({
-            "statusCode": 200,
-            "message": "Login exitoso",
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "username": username
+            "token": access_token,        # ← ¡¡ESTO ES LO QUE ESPERA TU FRONTEND!!
+            "username": username,
+            "message": "Login exitoso"
         }), 200
     else:
-        return jsonify({"statusCode": 401, "message": "Contraseña incorrecta"}), 401
+        return jsonify({"message": "Contraseña incorrecta"}), 401
 
+# Ruta protegida para reportar inundación
 @app.route('/report_flood', methods=['POST'])
 @jwt_required()
 def report_flood():
@@ -118,7 +113,7 @@ def report_flood():
     required_fields = ['ubicacion', 'fecha', 'temperatura', 'descripcion_clima', 'mensaje']
     
     if not all(field in data for field in required_fields):
-        return jsonify({"statusCode": 400, "message": "Todos los campos son requeridos"}), 400
+        return jsonify({"message": "Todos los campos son requeridos"}), 400
 
     ubicacion = data['ubicacion']
     fecha = data['fecha']
@@ -131,7 +126,7 @@ def report_flood():
     COMPANY_EMAIL = os.environ.get("COMPANY_EMAIL")
 
     if not all([SENDGRID_API_KEY, SENDER_EMAIL, COMPANY_EMAIL]):
-        return jsonify({"statusCode": 500, "message": "Faltan variables de entorno de SendGrid"}), 500
+        return jsonify({"message": "Faltan variables de entorno de SendGrid"}), 500
 
     body = f"""
 Se ha recibido un reporte de inundación desde la app Weatheria.
@@ -157,15 +152,15 @@ Verificar inmediatamente la zona reportada.
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(email)
         print("EMAIL ENVIADO - STATUS:", response.status_code)
-        return jsonify({"statusCode": 200, "message": "Reporte enviado exitosamente"}), 200
+        return jsonify({"message": "Reporte enviado exitosamente"}), 200
     except Exception as e:
         print("ERROR SENDGRID:", str(e))
-        return jsonify({"statusCode": 500, "message": f"Error al enviar correo: {str(e)}"}), 500
+        return jsonify({"message": f"Error al enviar correo: {str(e)}"}), 500
 
 # Inicializar base de datos
 init_db()
 
-# === ARRANQUE DEL SERVIDOR (FUNCIONA EN RENDER Y LOCAL) ===
+# === ARRANQUE DEL SERVIDOR (compatible con Render) ===
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))  # Render asigna PORT automáticamente
+    port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True)
