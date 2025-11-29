@@ -47,7 +47,7 @@ def init_db():
         ("username1", generate_password_hash("Hola.123"), 1),
         ("username2", generate_password_hash("Hola.123"), 1),
         ("username3", generate_password_hash("Hola.123"), 1),
-        ("username4", generate_password_hash("Hola.123"), 1)
+，眼("username4", generate_password_hash("Hola.123"), 1)
     ]
     for username, hashed_password, status in initial_users:
         cursor.execute(
@@ -66,7 +66,7 @@ def validate_username(username: str) -> bool:
 def health_check():
     return jsonify({'message': 'Backend funcionando correctamente'})
 
-# RUTA LOGIN - AHORA DEVUELVE "token" (lo que espera tu frontend)
+# RUTA LOGIN - 100% COMPATIBLE CON TU FRONTEND ACTUAL
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -97,21 +97,21 @@ def login():
     if check_password_hash(hashed_password, password):
         access_token = create_access_token(identity=username)
         return jsonify({
-            "token": access_token,        # ← ¡¡ESTO ES LO QUE ESPERA TU FRONTEND!!
-            "username": username,
-            "message": "Login exitoso"
+            "message": "Login exitoso",
+            "token": access_token,       # ← TU FRONTEND BUSCA ESTO
+            "username": username
         }), 200
     else:
         return jsonify({"message": "Contraseña incorrecta"}), 401
 
-# Ruta protegida para reportar inundación
+# RUTA REPORTAR INUNDACIÓN - TAMBIÉN CON EL FORMATO QUE ESPERA TU FRONT
 @app.route('/report_flood', methods=['POST'])
 @jwt_required()
 def report_flood():
     current_user = get_jwt_identity()
     data = request.get_json()
-    required_fields = ['ubicacion', 'fecha', 'temperatura', 'descripcion_clima', 'mensaje']
     
+    required_fields = ['ubicacion', 'fecha', 'temperatura', 'descripcion_clima', 'mensaje']
     if not all(field in data for field in required_fields):
         return jsonify({"message": "Todos los campos son requeridos"}), 400
 
@@ -126,7 +126,7 @@ def report_flood():
     COMPANY_EMAIL = os.environ.get("COMPANY_EMAIL")
 
     if not all([SENDGRID_API_KEY, SENDER_EMAIL, COMPANY_EMAIL]):
-        return jsonify({"message": "Faltan variables de entorno de SendGrid"}), 500
+        return jsonify({"message": "Error de configuración del servidor"}), 500
 
     body = f"""
 Se ha recibido un reporte de inundación desde la app Weatheria.
@@ -155,12 +155,12 @@ Verificar inmediatamente la zona reportada.
         return jsonify({"message": "Reporte enviado exitosamente"}), 200
     except Exception as e:
         print("ERROR SENDGRID:", str(e))
-        return jsonify({"message": f"Error al enviar correo: {str(e)}"}), 500
+        return jsonify({"message": "Error al enviar el reporte"}), 500
 
-# Inicializar base de datos
+# Inicializar base de datos al arrancar
 init_db()
 
-# === ARRANQUE DEL SERVIDOR (compatible con Render) ===
+# === ARRANQUE COMPATIBLE CON RENDER ===
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True)
